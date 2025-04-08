@@ -1,0 +1,62 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+true_matrix = [[10.0, 20.0], [30.0, 40.0]] 
+x_vector = [1.0, -1.0] 
+
+train_data = []
+for i in range(len(true_matrix)):
+    for j in range(len(true_matrix[0])):
+        train_data.append(([i / len(true_matrix), j / len(true_matrix)], true_matrix[i][j]))
+
+train_inputs = torch.tensor([item[0] for item in train_data], dtype=torch.float32)
+train_targets = torch.tensor([item[1] for item in train_data], dtype=torch.float32).unsqueeze(1)
+
+class MLP(nn.Module):
+    def __init__(self, input_dim=2, hidden_dim=128, output_dim=1):
+        super(MLP, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, output_dim)
+        )
+    
+    def forward(self, x):
+        return self.model(x)
+
+def predict_Aij(i, j, mlp_model):
+    input_tensor = torch.tensor([i, j], dtype=torch.float32).unsqueeze(0)
+    A_ij = mlp_model(input_tensor)
+    return A_ij.item()
+
+def compute_y(x, mlp_model):
+    n = len(x)
+    y = [0] * n
+    for i in range(n):
+        yi = 0
+        for j in range(n):
+            A_ij = predict_Aij(i / n, j / n, mlp_model)
+            yi += A_ij * x[j]
+        y[i] = yi
+    return y
+
+mlp_model = MLP()
+
+loss_f = nn.MSELoss()
+optimizer = optim.Adam(mlp_model.parameters(), lr=0.01)
+
+epochs = 500
+for epoch in range(epochs):
+    optimizer.zero_grad()
+    predictions = mlp_model(train_inputs)
+    loss = loss_f(predictions, train_targets)
+    loss.backward()
+    optimizer.step()
+    if (epoch + 1) % 100 == 0:
+        print(f'Epoch [{epoch + 1}/{epochs}], Loss: {loss.item()}')
+
+y_result = compute_y(x_vector, mlp_model)
+print("Resulting vector y:", y_result)
